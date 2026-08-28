@@ -1701,12 +1701,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    var openOnlyGroup = function (groupToOpen) {
-        groups.forEach(function (group) {
-            setGroupOpen(group, group === groupToOpen);
-        });
-    };
-
     var setActiveTocLink = function (hash) {
         var activeId = String(hash || '').replace(/^#/, '');
 
@@ -1794,14 +1788,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            var isOpen = group.classList.contains('is-open');
-
-            if (isOpen) {
-                setGroupOpen(group, false);
-                return;
-            }
-
-            openOnlyGroup(group);
+            setGroupOpen(group, !group.classList.contains('is-open'));
         });
     });
 
@@ -1842,22 +1829,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             group.style.display = groupVisible ? '' : 'none';
         });
-
-        var openVisibleGroup = groups.find(function (group) {
-            return group.classList.contains('is-open') && group.style.display !== 'none';
-        });
-
-        if (openVisibleGroup) {
-            openOnlyGroup(openVisibleGroup);
-        } else {
-            var firstVisibleGroup = groups.find(function (group) {
-                return group.style.display !== 'none';
-            });
-
-            if (firstVisibleGroup) {
-                openOnlyGroup(firstVisibleGroup);
-            }
-        }
 
         empty.style.display = visible === 0 ? 'block' : 'none';
 
@@ -1945,17 +1916,6 @@ document.addEventListener('DOMContentLoaded', function () {
             results.hidden = false;
         });
     };
-
-    var activeItem = nav.querySelector('[data-nav-item].active');
-
-    if (activeItem) {
-        var activeGroup = activeItem.closest('[data-nav-group]');
-        openOnlyGroup(activeGroup);
-
-        requestAnimationFrame(function () {
-            activeItem.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        });
-    }
 
     search.addEventListener('input', update);
     update();

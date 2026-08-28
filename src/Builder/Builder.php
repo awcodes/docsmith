@@ -6,6 +6,7 @@ namespace Docsmith\Builder;
 
 use Docsmith\Compatibility\ReadmeIndexImporter;
 use Docsmith\Config\BuildConfig;
+use Docsmith\Config\DocsConfiguration;
 use Docsmith\Config\OgImageConfig;
 use Docsmith\Config\SiteMetadata;
 use Docsmith\Content\Document;
@@ -764,6 +765,10 @@ final class Builder
             $documents = (new ReadmeIndexImporter($this->commonMarkRenderer()))->import($readmePath, $this->readmeSkipSections);
         }
 
+        $docsConfiguration = $this->navigationOrder === []
+            ? DocsConfiguration::load($sourcePath ?? $this->requireSourcePath())
+            : null;
+
         $config = BuildConfig::fromInput(
             sourcePath: $sourcePath ?? $this->requireSourcePath(),
             outputPath: $this->requireOutputPath(),
@@ -783,7 +788,10 @@ final class Builder
                 favicon: $this->favicon,
                 showDocsmithBadge: $this->showDocsmithBadge,
                 publishMedia: $this->publishMedia,
-                navigationOrder: $this->navigationOrder,
+                navigationOrder: $this->navigationOrder !== []
+                    ? $this->navigationOrder
+                    : ($docsConfiguration['navigation'] ?? []),
+                navigationLabels: $docsConfiguration['labels'] ?? [],
             ),
             baseUrl: $this->baseUrl,
             rightSidebar: $this->rightSidebar,
@@ -967,7 +975,12 @@ final class Builder
                 ? rtrim($outputPath, '/')
                 : rtrim($outputPath, '/') . '/' . $unit['docsSlug']
                     . ($unit['segment'] !== '' ? '/' . $unit['segment'] : '');
-            $navigationOrder = $unit['navigation'] ?? $this->navigationOrder;
+            $docsConfiguration = $unit['navigation'] === null
+                ? DocsConfiguration::load($unit['source'])
+                : null;
+            $navigationOrder = $unit['navigation']
+                ?? $docsConfiguration['navigation']
+                ?? $this->navigationOrder;
 
             $config = BuildConfig::fromInput(
                 sourcePath: $unit['source'],
@@ -989,6 +1002,7 @@ final class Builder
                     showDocsmithBadge: $this->showDocsmithBadge,
                     publishMedia: $this->publishMedia,
                     navigationOrder: $navigationOrder,
+                    navigationLabels: $docsConfiguration['labels'] ?? [],
                 ),
                 baseUrl: $this->baseUrl,
                 rightSidebar: $this->rightSidebar,

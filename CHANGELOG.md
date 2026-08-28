@@ -1,5 +1,10 @@
 # DocSmith Change Log
 
+## Unreleased
+
+- **Source-local navigation configuration** — a source directory can define its page order in `docs.yml`. The `navigation` list accepts extensionless page paths, labeled sections with `children`, and `{ page, label }` entries that override sidebar text without changing the page heading; explicit hub/version navigation still takes precedence.
+- **Independent navigation sections** — nested navigation starts closed except for the active page's section, and opening one section no longer closes another.
+
 > Changes in **0.1.4 and after** — every release from `0.1.4` through `0.2.1`.
 > (`chore: regenerate docs` and merge commits are omitted.)
 

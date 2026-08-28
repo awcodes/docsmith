@@ -24,6 +24,8 @@ final readonly class SiteMetadata
         public bool $publishMedia = true,
         /** @var list<string> */
         public array $navigationOrder = [],
+        /** @var array<string, string> */
+        public array $navigationLabels = [],
     ) {
     }
 }

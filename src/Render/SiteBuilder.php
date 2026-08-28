@@ -246,7 +246,13 @@ HTML;
         $editUrl = $this->editUrl($config, $document);
         $breadcrumbs = $this->breadcrumbs($document, $documents);
         $showRightSidebar = $config->rightSidebar && $toc !== [];
-        $navigation = $this->navigation($documents, $document, $document->outputPath);
+        $navigation = $this->navigation(
+            $documents,
+            $document,
+            $document->outputPath,
+            $config->metadata->navigationOrder !== [],
+            $config->metadata->navigationLabels,
+        );
         $assetPath = $this->assetPath($document->outputPath);
         $scriptPath = $this->scriptPath($document->outputPath);
         $rootPrefix = htmlspecialchars($this->relativePagePath($document->outputPath, 'index.html'), ENT_QUOTES, 'UTF-8');
@@ -332,7 +338,13 @@ HTML;
 
         $title = htmlspecialchars($config->metadata->title, ENT_QUOTES, 'UTF-8');
         $description = htmlspecialchars($config->metadata->description, ENT_QUOTES, 'UTF-8');
-        $navigation = $this->navigation($documents, null, 'index.html');
+        $navigation = $this->navigation(
+            $documents,
+            null,
+            'index.html',
+            $config->metadata->navigationOrder !== [],
+            $config->metadata->navigationLabels,
+        );
         $pageLinksMarkup = implode('', $pageLinks);
 
         return <<<HTML
@@ -534,14 +546,28 @@ HTML;
         return $tags;
     }
 
-    /** @param list<Document> $documents */
-    private function navigation(array $documents, ?Document $activeDocument, string $currentOutputPath): string
+    /**
+     * @param  list<Document>  $documents
+     * @param  array<string, string>  $labels
+     */
+    private function navigation(array $documents, ?Document $activeDocument, string $currentOutputPath, bool $preserveGroupOrder = false, array $labels = []): string
     {
         $groups = [];
+        $lastGroupKey = null;
+        $orderedGroupKey = null;
 
         foreach ($documents as $document) {
             $groupName = $this->groupNameFor($document);
             $groupKey = strtolower($groupName);
+
+            if ($preserveGroupOrder && $groupKey !== $lastGroupKey) {
+                $lastGroupKey = $groupKey;
+                $orderedGroupKey = $groupKey . '|' . count($groups);
+            }
+
+            if ($preserveGroupOrder) {
+                $groupKey = (string) $orderedGroupKey;
+            }
 
             if (! array_key_exists($groupKey, $groups)) {
                 $groups[$groupKey] = [
@@ -560,11 +586,16 @@ HTML;
             $firstGroup = array_values($groups)[0];
 
             if (strtolower((string) $firstGroup['name']) === 'general') {
-                return $this->navigationItems($firstGroup['items'], $activeDocument, $currentOutputPath);
+                return $this->navigationItems($firstGroup['items'], $activeDocument, $currentOutputPath, $labels);
             }
         }
 
         foreach ($groups as $group) {
+            if ($preserveGroupOrder && strtolower((string) $group['name']) === 'general') {
+                $markup .= $this->navigationItems($group['items'], $activeDocument, $currentOutputPath, $labels);
+                continue;
+            }
+
             $groupHasActive = false;
 
             foreach ($group['items'] as $item) {
@@ -584,7 +615,7 @@ HTML;
             $markup .= '</button>';
             $markup .= '<div class="nav-group-items" data-nav-items>';
 
-            $markup .= $this->navigationItems($group['items'], $activeDocument, $currentOutputPath);
+            $markup .= $this->navigationItems($group['items'], $activeDocument, $currentOutputPath, $labels);
             $markup .= '</div>';
             $markup .= '</section>';
         }
@@ -616,7 +647,9 @@ HTML;
                 $document->title,
                 $document->sidebarLabel,
                 $document->relativePath,
+                preg_replace('/\.md$/i', '', $document->relativePath) ?? $document->relativePath,
                 $document->outputPath,
+                preg_replace('#/index\.html$#i', '', $document->outputPath) ?? $document->outputPath,
             ];
 
             foreach ($keys as $key) {
@@ -635,15 +668,21 @@ HTML;
         return array_map(static fn (array $item): Document => $item['document'], $ranked);
     }
 
-    /** @param list<Document> $items */
-    private function navigationItems(array $items, ?Document $activeDocument, string $currentOutputPath): string
+    /**
+     * @param  list<Document>  $items
+     * @param  array<string, string>  $labels
+     */
+    private function navigationItems(array $items, ?Document $activeDocument, string $currentOutputPath, array $labels = []): string
     {
         $markup = array_map(
-            function (Document $document) use ($activeDocument, $currentOutputPath): string {
+            function (Document $document) use ($activeDocument, $currentOutputPath, $labels): string {
                 $isActive = $activeDocument instanceof Document && $activeDocument->relativePath === $document->relativePath;
                 $class = $isActive ? 'active' : '';
                 $href = $this->relativePagePath($currentOutputPath, $document->outputPath);
-                $label = $document->sidebarLabel !== '' ? $document->sidebarLabel : $document->title;
+                $configuredLabel = $this->configuredNavigationLabel($document, $labels);
+                $label = $configuredLabel !== ''
+                    ? $configuredLabel
+                    : ($document->sidebarLabel !== '' ? $document->sidebarLabel : $document->title);
                 $search = trim($document->title . ' ' . $label . ' ' . $document->description);
 
                 return sprintf(
@@ -659,6 +698,25 @@ HTML;
         );
 
         return implode('', $markup);
+    }
+
+    /** @param array<string, string> $labels */
+    private function configuredNavigationLabel(Document $document, array $labels): string
+    {
+        foreach ([
+            $document->relativePath,
+            preg_replace('/\.md$/i', '', $document->relativePath) ?? $document->relativePath,
+            $document->outputPath,
+            preg_replace('#/index\.html$#i', '', $document->outputPath) ?? $document->outputPath,
+        ] as $key) {
+            $normalized = strtolower(trim($key, '/'));
+
+            if (array_key_exists($normalized, $labels)) {
+                return $labels[$normalized];
+            }
+        }
+
+        return '';
     }
 
     private function groupNameFor(Document $document): string

@@ -42,6 +42,36 @@ Set `navigation` on an entry to control its sidebar order. Entries are matched b
 
 Entries without `navigation` fall back to the global `navigationOrder([...])`.
 
+### Source-local configuration
+
+A hub source can own its navigation order in a `docs.yml` file at the root of
+the source directory. Page entries may omit the `.md` extension, and labeled
+sections can contain a `children` list:
+
+```yaml
+version: 1
+
+navigation:
+  - page: index
+    label: Overview
+  - installation
+  - label: Usage
+    children:
+      - usage/authentication
+      - usage/permissions
+```
+
+Use the `page` and `label` form when the sidebar text should differ from the
+page heading. This changes only the navigation label; the Markdown heading and
+page title are left intact.
+
+Navigation sections start closed, except for the section containing the active
+page. Opening or closing a section does not change the state of any other
+section.
+
+Explicit `navigation` on the hub entry takes precedence over `docs.yml`, which
+in turn takes precedence over the global `navigationOrder([...])` value.
+
 ## Hub entries with versions
 
 An entry can embed a `versions` list. The entry stays a single dropdown item, and its pages get version pill buttons:

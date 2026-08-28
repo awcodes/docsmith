@@ -928,3 +928,72 @@ it('links breadcrumb directory crumbs to the section index when one exists', fun
     expect($quickstartPage)
         ->toContain('href="../"');
 });
+
+it('loads navigation order from docs.yml in each hub source', function (): void {
+    $projectPath = sys_get_temp_dir() . '/docsmith-yaml-nav-' . uniqid();
+    $outputPath = sys_get_temp_dir() . '/docsmith-yaml-nav-dist-' . uniqid();
+
+    mkdir($projectPath . '/one/usage', 0777, true);
+    mkdir($projectPath . '/two', 0777, true);
+
+    foreach (['index' => 'One Home', 'alpha' => 'One Alpha', 'beta' => 'One Beta'] as $file => $title) {
+        file_put_contents($projectPath . '/one/' . $file . '.md', "# {$title}\n");
+    }
+    file_put_contents($projectPath . '/one/usage/first.md', "# First\n");
+    file_put_contents($projectPath . '/one/usage/second.md', "# Second\n");
+    file_put_contents($projectPath . '/one/theming.md', "# Theming\n");
+    file_put_contents($projectPath . '/one/docs.yml', "version: 1\nnavigation:\n  - page: index\n    label: Overview\n  - beta\n  - alpha\n  - label: Usage\n    children:\n      - usage/second\n      - usage/first\n  - theming\n");
+
+    foreach (['index' => 'Two Home', 'alpha' => 'Two Alpha', 'beta' => 'Two Beta'] as $file => $title) {
+        file_put_contents($projectPath . '/two/' . $file . '.md', "# {$title}\n");
+    }
+    file_put_contents($projectPath . '/two/docs.yml', "navigation:\n  - index\n  - alpha\n  - beta\n");
+
+    Docsmith::make()
+        ->output($outputPath)
+        ->hub([
+            'one' => ['label' => 'One', 'source' => $projectPath . '/one'],
+            'two' => ['label' => 'Two', 'source' => $projectPath . '/two'],
+        ])
+        ->build();
+
+    $one = (string) file_get_contents($outputPath . '/one/index.html');
+    $two = (string) file_get_contents($outputPath . '/two/index.html');
+
+    expect(strpos($one, 'One Beta') < strpos($one, 'One Alpha'))->toBeTrue()
+        ->and($one)->toContain('data-title="Overview"')
+        ->and($one)->toContain('<h1>One Home</h1>')
+        ->and(strpos($one, '>Second</a>') < strpos($one, '>First</a>'))->toBeTrue()
+        ->and(strpos($one, '>First</a>') < strpos($one, '>Theming</a>'))->toBeTrue()
+        ->and(strpos($two, 'Two Alpha') < strpos($two, 'Two Beta'))->toBeTrue();
+
+    $nestedPage = (string) file_get_contents($outputPath . '/one/usage/first/index.html');
+    expect($nestedPage)->toContain('<section class="nav-group is-open has-active" data-nav-group>')
+        ->and($nestedPage)->toContain('data-nav-toggle aria-expanded="true"');
+});
+
+it('prefers explicit hub navigation over source docs.yml', function (): void {
+    $sourcePath = sys_get_temp_dir() . '/docsmith-yaml-override-' . uniqid();
+    $outputPath = sys_get_temp_dir() . '/docsmith-yaml-override-dist-' . uniqid();
+
+    mkdir($sourcePath, 0777, true);
+    file_put_contents($sourcePath . '/index.md', "# Home\n");
+    file_put_contents($sourcePath . '/alpha.md', "# Alpha\n");
+    file_put_contents($sourcePath . '/beta.md', "# Beta\n");
+    file_put_contents($sourcePath . '/docs.yml', "navigation:\n  - index\n  - alpha\n  - beta\n");
+
+    Docsmith::make()
+        ->output($outputPath)
+        ->hub([
+            'docs' => [
+                'label' => 'Docs',
+                'source' => $sourcePath,
+                'navigation' => ['index', 'beta', 'alpha'],
+            ],
+        ])
+        ->build();
+
+    $page = (string) file_get_contents($outputPath . '/docs/index.html');
+
+    expect(strpos($page, '>Beta</a>') < strpos($page, '>Alpha</a>'))->toBeTrue();
+});
