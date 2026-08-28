@@ -8,6 +8,12 @@
 > Changes in **0.1.4 and after** — every release from `0.1.4` through `0.2.1`.
 > (`chore: regenerate docs` and merge commits are omitted.)
 
+## 0.5.0 - 2026-08-28
+
+### Features
+- **AI docs**: `docsmith install:ai` sets up MCP tools and a `docsmith-docs` skill for Grok, Claude Code, Codex, Cursor, OpenCode, and Google Antigravity. Agents write docs in words unless the user asked for screenshots or videos. `capture_media` then inspects a running page, crops a widget screenshot with padding, or records a short video framed the same way. Login goes in off-camera `before` steps. Grok gets `.grok/config.toml` and `.grok/skills/`.
+- **Asset minification**: CSS and JavaScript are minified using `matthiasmullie/minify` during the build step. Output files are stripped of comments, unnecessary whitespace, and redundant characters. Falls back to unminified output on failure so builds never break.
+
 ## 0.4.1 - 2026-08-26
 
 Republish of 0.4.0. The v0.4.0 tag was deleted and recreated during the release, and Packagist does not re-import a tag name it has already seen, so 0.4.0 never became installable through Composer. Use 0.4.1 or later.
